@@ -1,4 +1,4 @@
-import pandas as pd 
+import pandas as pd
 import numpy as np
 from pymongo import MongoClient
 import matplotlib.pyplot as plt
@@ -20,7 +20,7 @@ mydb = mongo['Test1']
 coll = mydb["Pnl_Gap"]
 
 # Function to fetch and process data
-@st.cache_data(ttl=600)
+@st.cache(ttl=600)  # Use @st.cache instead of @st.cache_data
 def load_data():
     # Fetch data from MongoDB
     table = list(coll.find({}, {'_id': 0, 'Date': 1, 'PNL': 1}))
@@ -32,7 +32,7 @@ def load_data():
 
 # Load data (with caching)
 if refresh_button:
-    st.cache_data.clear()
+    st.cache.clear()  # Use st.cache.clear() to clear the cache
 
 data = load_data()
 
