@@ -8,7 +8,7 @@ import streamlit as st
 st.title("Gapup Strategy")
 
 # Connect to MongoDB
-mongo = MongoClient("mongodb+srv://my_algo_user:uN3VJWO5WDPYhYA9@cluster0.otr8r.mongodb.net/?retryWrites=true&w=majority")
+mongo = MongoClient("mongodb+srv://my_algo_user:aUdNEfbaM2MDd3k8@cluster0.otr8r.mongodb.net/?retryWrites=true&w=majority")
 mydb = mongo['Test1']
 coll = mydb["Pnl_Gap"]
 
