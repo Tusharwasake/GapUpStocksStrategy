@@ -1,159 +1,129 @@
+
 # 📊 Gap-Up Strategy Analysis App
 
-This project is a full-stack trading analytics and strategy execution platform that allows users to analyze and automate a **Gap-Up Trading Strategy** using:
-
-* **Streamlit** frontend
-* **MongoDB** for data storage
-* **AWS Lambda + Cron** for scheduled strategy execution
-* **Fyers Broker API** to place trades and fetch market data
+This project is a full-stack trading system that analyzes and automates a **Gap-Up Trading Strategy**. It includes real-time **Telegram alerts** whenever a trade is executed or failed, so users stay informed even without opening the dashboard.
 
 ---
 
-## 📁 Project Structure
+## 🧩 Tech Stack
 
-```
-trading-strategy-app/
-│
-├── streamlit_app.py           # Streamlit frontend app
-├── strategy_logic.py          # Trading logic (for AWS Lambda)
-├── fyers_helper.py            # Helper functions to interact with Fyers API
-├── requirements.txt           # Python dependencies
-├── deploy_lambda.sh           # Script to deploy to AWS Lambda (optional)
-└── README.md                  # Project documentation (this file)
-```
+| Layer         | Tech                         |
+| ------------- | ---------------------------- |
+| UI Dashboard  | Streamlit                    |
+| Scheduling    | AWS Lambda + CloudWatch Cron |
+| Broker API    | Fyers API                    |
+| Data Storage  | MongoDB Atlas                |
+| Notifications | Telegram Bot                 |
+| Language      | Python                       |
 
 ---
 
-## 🧠 Strategy Overview: Gap-Up Trading
+## 🔄 Trading Flow
 
-This strategy aims to take advantage of **gap-up openings** — when a stock opens significantly higher than its previous day’s close.
-
-* **Entry**: If the stock opens with a gap-up beyond a threshold (e.g., >1% gap).
-* **Exit**: Exit by EOD or based on profit/loss conditions.
-* **Log PNL**: Store PNL in MongoDB after each execution.
-
----
-
-## 💻 Technologies Used
-
-| Layer              | Tech                           |
-| ------------------ | ------------------------------ |
-| Frontend           | Streamlit                      |
-| Backend            | Python                         |
-| Scheduler          | AWS Lambda + CloudWatch (Cron) |
-| Data Storage       | MongoDB Atlas                  |
-| Broker Integration | Fyers API                      |
+1. **AWS Lambda Cron** triggers strategy at market open.
+2. **Strategy checks** gap-up conditions and places trades via **Fyers API**.
+3. **PNL and trade data** is saved in **MongoDB Atlas**.
+4. **Telegram bot** sends trade execution alerts.
+5. **Streamlit app** displays historical PNL and stats.
 
 ---
 
-## 🔧 Streamlit App (`streamlit_app.py`)
+## 📢 Telegram Alerts Integration
 
-### Key Features:
+### ✅ What It Does
 
-* Visualizes **cumulative PNL**
-* Shows **data table** of trades
-* Displays **insights** like avg, max, min PNL
-* Refresh button to reload latest data
+* Sends message for:
 
-### Run locally:
+  * Trade executed (buy/sell)
+  * Trade skipped (gap condition not met)
+  * Any execution error (for debugging)
+* Real-time alerts to your Telegram account or group.
 
-```bash
-pip install -r requirements.txt
-streamlit run streamlit_app.py
-```
+### 🔧 Setup
 
----
+1. **Create Telegram Bot**
 
-## 🔄 Strategy Execution (Lambda + Cron)
+   * Talk to [@BotFather](https://t.me/BotFather)
+   * Use `/newbot` to create a bot and get `BOT_TOKEN`
 
-### `strategy_logic.py`
+2. **Get Chat ID**
 
-Contains:
+   * Send message to your bot
+   * Use this URL to get chat ID:
 
-* Authentication with Fyers
-* Fetching stock data
-* Applying the gap-up strategy
-* Calculating and logging PNL
-* Inserting the result into MongoDB
+     ```
+     https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates
+     ```
+   * Note down your `chat_id`
 
-### Deploying to AWS Lambda:
+3. **Code Example (`telegram_alert.py`)**:
 
-1. Zip `strategy_logic.py`, `fyers_helper.py`, and dependencies
-2. Upload to Lambda
-3. Set IAM role for VPC + secrets
-4. Schedule using **CloudWatch Events (cron)**
+```python
+import requests
 
-Example cron for 9:15 AM IST (Indian Market Open):
-
-```bash
-cron(45 3 ? * MON-FRI *)  # 3:45 UTC = 9:15 IST
+def send_telegram_alert(message, bot_token, chat_id):
+    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    payload = {
+        "chat_id": chat_id,
+        "text": message,
+        "parse_mode": "Markdown"
+    }
+    try:
+        res = requests.post(url, json=payload)
+        return res.status_code == 200
+    except Exception as e:
+        print("Failed to send Telegram alert:", e)
+        return False
 ```
 
----
+4. **Use in Strategy Execution**:
 
-## 🔗 Fyers Broker API Integration (`fyers_helper.py`)
+```python
+from telegram_alert import send_telegram_alert
 
-Handles:
-
-* Login via OAuth2
-* Token management
-* Placing orders
-* Fetching historical/market data
-
-👉 Make sure to:
-
-* Register your redirect URI with Fyers
-* Store `access_token` securely (consider AWS Secrets Manager)
-
----
-
-## 🌐 MongoDB (Atlas)
-
-* Used to store each trade’s date and PNL.
-* Collection: `Pnl_Gap`
-* Fields: `{ Date, PNL }`
-
-MongoDB connection URI used in `streamlit_app.py` and `strategy_logic.py`.
-
----
-
-## 🛡️ Security
-
-* Do not hardcode secrets in code.
-* Use `.env` or AWS Secrets Manager.
-* Apply CORS, token expiration checks if hosting Streamlit online.
-
----
-
-## 📈 Future Improvements
-
-* Add more strategies (e.g., Gap-Down, Momentum)
-* Daily email reports using SES
-* Telegram bot alerts
-* Add auth login to Streamlit app
-* Store logs and trades in detailed format
-
----
-
-## ✅ Example Use-Case Flow
-
-1. **9:15 AM**: Lambda triggers and executes strategy
-2. Fetches market data via Fyers
-3. Applies logic and places order
-4. Calculates PNL and inserts into MongoDB
-5. **Later**: User opens Streamlit app to view performance
-
----
-
-## 📦 `requirements.txt` Example
-
-```txt
-pandas
-numpy
-streamlit
-matplotlib
-pymongo
-fyers-apiv2
-requests
+# Example alert after placing a trade
+send_telegram_alert(
+    f"📈 Trade Executed:\nSymbol: {symbol}\nSide: BUY\nPrice: {entry_price}",
+    bot_token="YOUR_BOT_TOKEN",
+    chat_id="YOUR_CHAT_ID"
+)
 ```
+
+---
+
+## 📁 Repository Setup
+
+In GitHub's "Edit repository details":
+
+* **Description**:
+
+  ```
+  Automated Gap-Up Trading Strategy with Fyers API, Streamlit, AWS Lambda, and Telegram alerts
+  ```
+* **Topics**:
+
+  ```
+  trading fyers-api telegram-alerts streamlit aws-lambda mongodb
+  ```
+
+---
+
+## 🔐 Security Tips
+
+* Store `BOT_TOKEN`, `chat_id`, Fyers token, Mongo URI securely using:
+
+  * `.env` + `python-dotenv`
+  * AWS Secrets Manager (for Lambda)
+
+---
+
+## 📈 Future Enhancements
+
+* Add interactive controls to execute backtests
+* Notify via Telegram on:
+
+  * Daily summary
+  * Unexpected losses
+* Add retry logic for order failures
+* Telegram command support (e.g., `/pnl`, `/last_trade`)
 
